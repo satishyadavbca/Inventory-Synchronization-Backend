@@ -1,0 +1,86 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+model User {
+ 
+  id                  String    @id @default(uuid())
+   name                String
+  email               String    @unique
+  phone                String?
+  password            String
+  role                Role     @default(USER) // Default is standard user
+  otp                 String?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  hashedRefreshToken  String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  licenses            License[]
+  @@index([email])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  sku         String   @unique
+  description String?
+  quantity    Int      @default(0)
+  price       Decimal  @db.Decimal(10, 2)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sku])
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model OtpVerification {
+  id             String   @id @default(uuid()) @db.Uuid
+  phone          String   @db.VarChar(20)
+  otpHash        String   @db.VarChar(255)
+  expiresAt      DateTime
+  failedAttempts Int      @default(0)
+  isUsed         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  // Composite index to speed up the verification lookup
+  @@index([phone, isUsed])
+  @@map("otp_verifications")
+}
+
+
+// Add this to your existing schema.prisma
+
+model License {
+  id          String    @id @default(uuid()) @db.Uuid
+  key         String    @unique @db.VarChar(25) // e.g. STHO-8892-KLA8-9923
+  isActivated Boolean   @default(false)
+  activatedAt DateTime?
+  
+  // Relation to the user who activated it
+  userId      String?   @db.Uuid
+  user        User?     @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("licenses")
+}

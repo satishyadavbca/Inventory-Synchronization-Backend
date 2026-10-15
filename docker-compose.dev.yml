@@ -1,0 +1,27 @@
+# =============================================================================
+# Development override — hot reload with your local source mounted in.
+#
+#     docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Differences from the production stack:
+#   * Builds the "builder" stage (includes the Nest CLI + dev dependencies).
+#   * Mounts ./src and ./prisma so file changes trigger a rebuild/restart.
+#   * Keeps the image's node_modules via an anonymous volume, so the compiled
+#     argon2 binary and generated Prisma client are NOT shadowed by the host.
+#   * Runs `start:dev` (nest watch) after applying migrations.
+# =============================================================================
+
+services:
+  api:
+    build:
+      context: .
+      target: builder
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      # Anonymous volume: preserve the container's installed node_modules
+      # (native argon2 + generated Prisma client) instead of the host's.
+      - /app/node_modules
+    command: sh -c "npx prisma migrate deploy && npm run start:dev"
